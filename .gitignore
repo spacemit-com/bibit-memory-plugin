@@ -1,0 +1,9 @@
+node_modules/
+dist/
+artifacts/
+.bibit-keys/
+debian/.npm-cache/
+*.local
+.env
+.DS_Store
+__pycache__/

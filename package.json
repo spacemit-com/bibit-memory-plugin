@@ -1,0 +1,39 @@
+{
+  "name": "@bibit-internal/memory-plugin",
+  "version": "0.1.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5169",
+    "build:dev": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "keygen": "bibit-plugin keygen --out .bibit-keys --key-id memory-development",
+    "build:plugin": "bibit-plugin build --key .bibit-keys/memory-development-private.pem --key-id memory-development"
+  },
+  "bibitPlugin": {
+    "entry": "src/plugin.tsx",
+    "manifest": "bibit.feature.json",
+    "artifactDir": "artifacts"
+  },
+  "dependencies": {
+    "@bibit/feature-contracts": "file:vendor/bibit-feature-contracts-0.3.0.tgz",
+    "@bibit/feature-dev-host": "file:vendor/bibit-feature-dev-host-0.3.0.tgz",
+    "@bibit/feature-plugin-sdk": "file:vendor/bibit-feature-plugin-sdk-0.3.0.tgz",
+    "@bibit/feature-sdk": "file:vendor/bibit-feature-sdk-0.3.0.tgz",
+    "@bibit/feature-ui": "file:vendor/bibit-feature-ui-0.3.0.tgz",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.8.0",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.2",
+    "vite": "6.1.0",
+    "vitest": "3.2.4"
+  }
+}

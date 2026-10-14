@@ -1,0 +1,345 @@
+/*
+ * Bibit settings styling for the Memory page.
+ *
+ * The host isolates these rules with a zero-specificity root wrapper, so all
+ * selectors stay namespaced under `.memory-settings` and never touch :root,
+ * html, body or a bare `*`. Colours come from the host design tokens; the
+ * literal fallbacks keep the standalone Feature Dev Host readable, and the
+ * media query below swaps them for dark surfaces.
+ */
+.memory-settings,
+.memory-settings * {
+  box-sizing: border-box;
+}
+
+.memory-settings {
+  --memory-surface: var(--card, oklch(1 0 0));
+  --memory-text: var(--foreground, oklch(0.145 0 0));
+  --memory-text-muted: var(--muted-foreground, oklch(0.556 0 0));
+  --memory-border: var(--border, oklch(0.922 0 0));
+  --memory-line: color-mix(in oklab, var(--memory-border) 40%, transparent);
+  --memory-track: var(--input, oklch(0.922 0 0));
+  --memory-hover: var(--secondary, oklch(0.97 0 0));
+  --memory-hover-strong: var(--accent, oklch(0.97 0 0));
+  --memory-page: var(--background, oklch(1 0 0));
+  --memory-danger: var(--destructive, oklch(0.577 0.245 27.325));
+  --memory-ring: var(--ring, oklch(0.84 0 0));
+  --memory-accent: #0d6fff;
+  --memory-ok: oklch(0.68 0.17 152);
+  --memory-warn: oklch(0.72 0.15 78);
+  --memory-radius: var(--radius-lg, 0.625rem);
+  --memory-radius-md: var(--radius-md, calc(var(--radius, 0.625rem) - 2px));
+  --memory-radius-sm: var(--radius-sm, calc(var(--radius, 0.625rem) - 4px));
+  --memory-radius-full: 999px;
+  --memory-shadow-xs: var(--shadow-xs, 0 1px 2px 0 oklch(0 0 0 / 0.05));
+  --memory-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 45rem;
+  min-width: 0;
+  color: var(--memory-text);
+  font-size: var(--text-sm, 0.875rem);
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .memory-settings {
+    --memory-surface: var(--card, oklch(0.205 0 0));
+    --memory-text: var(--foreground, oklch(0.985 0 0));
+    --memory-text-muted: var(--muted-foreground, oklch(0.708 0 0));
+    --memory-border: var(--border, oklch(1 0 0 / 10%));
+    --memory-track: var(--input, oklch(1 0 0 / 15%));
+    --memory-hover: var(--secondary, oklch(0.269 0 0));
+    --memory-hover-strong: var(--accent, oklch(0.269 0 0));
+    --memory-page: var(--background, oklch(0.145 0 0));
+  }
+}
+
+.memory-settings__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.memory-settings__title {
+  margin: 0;
+  font-size: var(--text-base, 1rem);
+  font-weight: 500;
+}
+
+.memory-settings__scope {
+  margin: 0;
+  color: var(--memory-text-muted);
+}
+
+.memory-settings__service {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.memory-settings__service-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.memory-settings__service-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem 0.1875rem 0.4375rem;
+  border-radius: var(--memory-radius-sm);
+  background: var(--memory-hover);
+  white-space: nowrap;
+}
+
+.memory-settings__service-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--memory-radius-full);
+  background: var(--memory-text-muted);
+}
+
+.memory-settings__service-chip[data-state='available'] .memory-settings__service-dot {
+  background: var(--memory-ok);
+}
+
+.memory-settings__service-chip[data-state='checking'] .memory-settings__service-dot {
+  background: var(--memory-warn);
+}
+
+.memory-settings__service-chip[data-state='unavailable'] .memory-settings__service-dot,
+.memory-settings__service-chip[data-state='unauthorized'] .memory-settings__service-dot {
+  background: var(--memory-danger);
+}
+
+.memory-settings__service-detail {
+  margin: 0;
+  color: var(--memory-text-muted);
+}
+
+.memory-settings__button--compact {
+  height: 2rem;
+  padding: 0 0.75rem;
+}
+
+.memory-settings__card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: var(--memory-radius);
+  background: var(--memory-surface);
+}
+
+.memory-settings__card-title {
+  margin: 0 0 1rem;
+  font-size: var(--text-base, 1rem);
+  font-weight: 500;
+}
+
+.memory-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  /* 与宿主 Settings 的 CardItem 一致：mt-2 + pb-3 + border-border/40 */
+  margin-top: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--memory-line);
+}
+
+.memory-settings__row:first-child {
+  margin-top: 0;
+}
+
+.memory-settings__row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.memory-settings__row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.memory-settings__row-title {
+  font-weight: 500;
+  color: var(--memory-text);
+}
+
+.memory-settings__row-description {
+  color: var(--memory-text-muted);
+}
+
+.memory-settings__row-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.memory-settings__switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 1px solid var(--memory-border);
+  border-radius: var(--memory-radius-full);
+  background: var(--memory-track);
+  box-shadow: var(--memory-shadow-xs);
+  cursor: pointer;
+  transition: background-color 150ms var(--memory-ease), border-color 150ms var(--memory-ease);
+}
+
+.memory-settings__switch::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--memory-radius-full);
+  background: var(--memory-page);
+  transition: translate 150ms var(--memory-ease);
+}
+
+.memory-settings__switch:checked {
+  background: var(--memory-accent);
+  border-color: var(--memory-accent);
+}
+
+.memory-settings__switch:checked::after {
+  translate: 1rem 0;
+}
+
+.memory-settings__select {
+  appearance: none;
+  height: 2.25rem;
+  min-width: 8.5rem;
+  padding: 0 2rem 0 0.75rem;
+  border: 1px solid var(--memory-track);
+  border-radius: var(--memory-radius-md);
+  background-color: var(--memory-surface);
+  box-shadow: var(--memory-shadow-xs);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6.5 8 10.5 12 6.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 0.875rem;
+  color: var(--memory-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.memory-settings__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--memory-radius-full);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms var(--memory-ease), border-color 150ms var(--memory-ease), opacity 150ms var(--memory-ease);
+}
+
+.memory-settings__button--outline {
+  border-color: var(--memory-border);
+  background: var(--memory-page);
+  box-shadow: var(--memory-shadow-xs);
+  color: var(--memory-text);
+}
+
+.memory-settings__button--outline:hover:not(:disabled) {
+  background: var(--memory-hover-strong);
+}
+
+.memory-settings__button--danger {
+  background: var(--memory-danger);
+  color: oklch(1 0 0);
+}
+
+.memory-settings__button--danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--memory-danger) 90%, transparent);
+}
+
+.memory-settings__switch:disabled,
+.memory-settings__select:disabled,
+.memory-settings__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.memory-settings__switch:focus-visible,
+.memory-settings__select:focus-visible,
+.memory-settings__button:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--memory-ring) 50%, transparent);
+  outline-offset: 0;
+}
+
+.memory-settings__button:active:not(:disabled) {
+  scale: 0.96;
+}
+
+.memory-settings__status {
+  margin: 0;
+  color: var(--memory-text-muted);
+}
+
+/*
+ * 进入设置页是一次低频的分段入场，按语义块错开 ~60ms；用 backwards 填充，
+ * 动画结束后回到元素自身样式，不需要常驻 opacity: 0。
+ */
+.memory-settings__intro,
+.memory-settings__service,
+.memory-settings__card {
+  animation: memory-settings-enter 200ms var(--memory-ease) backwards;
+}
+
+.memory-settings__service {
+  animation-delay: 60ms;
+}
+
+.memory-settings__card:nth-of-type(1) {
+  animation-delay: 120ms;
+}
+
+.memory-settings__card:nth-of-type(2) {
+  animation-delay: 180ms;
+}
+
+@keyframes memory-settings-enter {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memory-settings__switch,
+  .memory-settings__switch::after,
+  .memory-settings__select,
+  .memory-settings__button {
+    transition: none;
+  }
+
+  .memory-settings__intro,
+  .memory-settings__service,
+  .memory-settings__card {
+    animation: none;
+  }
+
+  .memory-settings__button:active:not(:disabled) {
+    scale: 1;
+  }
+}

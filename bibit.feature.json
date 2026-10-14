@@ -1,0 +1,29 @@
+{
+  "manifestSchemaVersion": 1,
+  "sdkApiVersion": 1,
+  "id": "memory",
+  "version": "0.1.5",
+  "owner": "memory-team",
+  "display": {
+    "titleKey": "memory:title",
+    "fallbackTitle": "Memory",
+    "descriptionKey": "memory:description",
+    "fallbackDescription": "Configure and manage local Agent memory",
+    "iconKey": "memory"
+  },
+  "targets": ["desktop"],
+  "requiredHostCapabilities": ["service:memory", "file:transfer"],
+  "contributions": {
+    "pages": [],
+    "settings": [
+      {
+        "id": "manager",
+        "path": "",
+        "surfaces": ["main"],
+        "navigation": { "group": "privacy", "order": 100 }
+      }
+    ],
+    "conversation": [],
+    "locales": ["en", "zh-CN"]
+  }
+}
