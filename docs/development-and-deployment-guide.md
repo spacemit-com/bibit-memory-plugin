@@ -7,7 +7,7 @@ Memory 设置插件，通过公开 Host API 连接独立的 Agent Memory 服务�
 
 | 项目 | 值 |
 | --- | --- |
-| 插件 | `memory` `0.1.0` |
+| 插件 | `memory` `0.1.6` |
 | `manifestSchemaVersion` | `1` |
 | `sdkApiVersion` | `1` |
 | `@bibit/*` SDK | `0.3.0` |
@@ -16,7 +16,7 @@ Memory 设置插件，通过公开 Host API 连接独立的 Agent Memory 服务�
 
 ## 2. 必须先读的框架文档
 
-框架源码和文档在 `bibit-gui` 仓库：
+框架源码和文档在 `bibit-gui` 仓库（内部）：
 
 - `docs/feature-sdk/README.md`
 - `docs/feature-sdk/developer-guide.md`
@@ -47,7 +47,7 @@ MemorySettingsPage
 - 页面调用 `service:memory` 的 `privacy.settings.get`、`privacy.settings.update`、`privacy.clear_history`、`privacy.clear_all`、`privacy.export_data` 和 `privacy.import_data`。
 - 数据导出先用 `privacy.export_data` 取回 JSON，再用 `file:transfer` 让用户选择保存位置并把字节交给宿主；宿主校验长度与 SHA-256 后原子写入，插件始终拿不到绝对路径。宿主未授权该能力时保持浏览器下载回退。
 - 数据导入由页面自己的文件选择框读取用户选择的 JSON（SDK 0.3.0 的 `file:transfer` 只有 download 方向），先用 `bianbu-agent-memory.export.v1` 校验格式、再弹确认框、最后调用 `privacy.import_data`。导入是合并语义：已存在的记录按原 id 跳过，不会覆盖或删除现有记忆。
-- 设置页面的记忆开关、保留期、云端备份和备份频率采用即时保存：每次变更都直接提交给 Memory Provider，由 memoryd 持久化；不经过 Runtime，也不直接编辑 JSON/SQLite。
+- 设置页面的记忆开关和保留期采用即时保存：每次变更都直接提交给 Memory Provider，由 memoryd 持久化；不经过 Runtime，也不直接编辑 JSON/SQLite。
 - 删除操作需要系统确认流程签发的一次性确认令牌。Host/Adapter 将令牌绑定到当前 Agent、operation 和有效期后注入请求；memoryd 只验证结果并执行事务。前端的确认弹窗不是安全边界。
 - 命令执行预览和全量 BiBit 操作审计由 Runtime/Security 提供，不属于本插件。
 - 后端协议字段见 `bianbu-agent-memory/docs/BIBIT_INTEGRATION_CONTRACT.md`。
@@ -84,10 +84,10 @@ npm run keygen
 npm run build:plugin
 ```
 
-产物：
+产物（版本取自 Manifest 的 `version`，当前为 `0.1.6`）：
 
 ```text
-artifacts/memory-0.1.0.bibit-plugin.tgz
+artifacts/memory-0.1.6.bibit-plugin.tgz
 ```
 
 `.bibit-keys/memory-development-private.pem` 是开发私钥，禁止提交。
@@ -126,7 +126,7 @@ Memory Adapter 属于 Runtime/Memory 服务侧，本前端仓库只定义 operat
 - [ ] 未 grant `service:memory` 时页面显示局部不可用
 - [ ] 在目标 Bibit 中真实 `privacy.settings.get` 成功后才显示「已加载」
 - [ ] 每次变更成功后重新进入仍能读到最新设置
-- [ ] 三个隐私操作分别调用 `privacy.clear_history`、`privacy.clear_all` 和 `privacy.export_data`
+- [ ] 四个数据操作分别调用 `privacy.clear_history`、`privacy.clear_all`、`privacy.export_data` 和 `privacy.import_data`
 - [ ] 真实 Host/Adapter 为清除操作注入一次性确认令牌，memoryd 验证失败时数据不变
 
 ## 8. 常见错误

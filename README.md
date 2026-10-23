@@ -1,93 +1,111 @@
 # Bibit Memory Plugin
 
-Bibit 的「记忆」前端插件。它在 Bibit 设置区提供本地 Agent Memory 的控制台，通过
-`service:memory` 这个 Host capability 连接独立的 Agent Memory 后端。本仓库是给新
-同事学习可信插件开发的最小、可运行参考实现。
+**The control panel for what your agent remembers.**
 
-## 项目定位
+[English](README.md) | [简体中文](README_CN.md)
 
-这是一个可独立开发和测试的 Bibit Agent Memory 设置插件示例。它只负责设置页、
-Host capability 调用和 DTO 契约；记忆的持久化、权限校验和删除确认由外部
-`service:memory` Provider 负责。仓库不包含生产服务地址、账号、密钥或用户记忆数据。
+Hi, this is the Memory plugin for BiBit. It adds one page under Settings →
+Memory, and that page is where a person turns memory on, decides how long to
+keep it, clears a conversation, wipes everything, and moves their data in or
+out as JSON.
 
-## 当前交付范围
+It doubles as a working reference for trusted BiBit plugin development: one
+settings contribution, one host capability, and no changes to the host.
 
-- 一个 `settings` contribution：`/settings/features/memory/`
-- 使用 `service:memory` 调用 `privacy.settings.get` / `privacy.settings.update`、
-  `privacy.clear_history`、`privacy.clear_all` 和 `privacy.export_data`
-- content-only 设置页，遵守 Bibit 设置内容契约
-- 页面上的记忆功能、保留期、云端备份和备份频率修改后立即通过 `service:memory` 持久化，不经过 Runtime；Memory Provider 负责写入 `memory.config.json`/对应命名空间配置
-- “清除对话历史”“清除所有记忆”和“数据导出”由页面调用对应 `privacy.*` operation；删除操作必须由可信 Host/Adapter 注入已验证的一次性确认令牌，页面不能自行生成令牌
-- `.memory-*` CSS 命名空间，不污染宿主和其他插件
-- 独立 Feature Dev Host；通过 `serviceConnections` 连接真实 Memory Adapter，不启动完整 Bibit 也能联调
-- 签名插件构建入口
+## What the page can do
 
-## 快速开始
+| In the UI | What the plugin calls |
+| --- | --- |
+| Memory on/off | `privacy.settings.update` |
+| How long to keep memory | `privacy.settings.update` |
+| Clear conversation history | `privacy.clear_history` |
+| Clear all memory | `privacy.clear_all` |
+| Export to JSON | `privacy.export_data` |
+| Import from JSON | `privacy.import_data` |
+
+Every change is saved immediately: the page sends it through `service:memory`
+and the Memory service writes it down. No Runtime hop, no hand-edited JSON.
+
+Deletes are a two-step dance. The page asks, the trusted host or adapter mints
+a one-time confirmation token, and the operation only runs with that token.
+The page itself cannot mint one.
+
+## How it fits
+
+```text
+BiBit Settings
+  └─ Memory page  (this plugin)
+       └─ service:memory  (host capability, granted at install)
+            └─ bianbu-agent-memoryd  (stores and guards the actual memory)
+```
+
+The plugin never talks to a backend URL. It asks the host for the
+`service:memory` capability and calls operations on it. That keeps the page
+portable and the credentials out of the front end.
+
+## Quick start
 
 ```bash
 npm ci
 npm run typecheck
+npm test
 npm run dev
 ```
 
-浏览器打开 Vite 输出的地址（默认是 `http://127.0.0.1:5169/`）。Dev Host 会在设置
-Shell 中显示 `Settings · manager` 入口，并把 `service:memory` 连接到
-`http://<host>:5168/invoke` 的 Memory Adapter。没有 Adapter 时页面会明确显示不可用。
+Then open the Vite URL (default `http://127.0.0.1:5169/`). The dev host renders
+the settings shell and wires `service:memory` to a Memory Adapter at
+`http://<host>:5168/invoke`. If no adapter is running, the page says so
+instead of pretending.
 
-Adapter 默认只监听回环地址（`127.0.0.1:5168`），不暴露到局域网。远程设备联调时，
-请使用你自己的 SSH 主机和端口转发；不要把真实主机名、用户名或密码写入配置或文档。在设备上
-可直接打开 `http://127.0.0.1:5168/` 或 `http://127.0.0.1:5168/health` 检查 Adapter 状态；
-两者返回状态 JSON，不承载 Memory 设置页面。业务调用仍使用
-`POST <baseUrl>/bibit/v1/invoke`（兼容旧路径 `/invoke`）。
+The adapter listens on loopback only. For a remote device, use your own SSH
+port forwarding; keep real host names, users, and passwords out of config files
+and docs. `http://127.0.0.1:5168/health` tells you whether the adapter is up.
 
-## 构建与验证
+## Build a signed plugin
 
 ```bash
-npm run typecheck
-npm test
-npm run build:dev
-
-# 首次生成本地开发签名密钥
-npm run keygen
-
-# 构建签名插件
-npm run build:plugin
+npm run build:dev      # plain dev bundle
+npm run keygen         # first time only: local development key
+npm run build:plugin   # signed package
 ```
 
-产物位于 `artifacts/memory-0.1.0.bibit-plugin.tgz`。`.bibit-keys/` 中的私钥禁止提交。
+The signed artifact lands in `artifacts/` as
+`memory-<version>.bibit-plugin.tgz`. Keep `.bibit-keys/` out of git.
 
-## 项目结构
+## What is in the box
 
 ```text
-├── bibit.feature.json        # Manifest
-├── package.json              # 独立插件构建配置
-├── dev/main.tsx              # Feature Dev Host 与真实 service connection
+├── bibit.feature.json        # manifest: one settings contribution
+├── package.json
+├── dev/main.tsx              # Feature Dev Host + real service connection
 ├── src/
-│   ├── feature.tsx           # FeatureModuleV1 装配
-│   ├── plugin.tsx            # registerFeaturePlugin 入口
+│   ├── feature.tsx           # FeatureModuleV1 wiring
+│   ├── plugin.tsx            # registerFeaturePlugin entry
 │   ├── MemorySettingsPage.tsx
-│   ├── memory-contracts.ts   # operation 与 DTO
-│   └── memory.css
-├── tests/                    # 最小回归测试
-└── docs/                     # 开发、部署与案例说明
+│   ├── memory-contracts.ts   # operations and DTOs
+│   └── memory.css            # .memory-* namespace
+├── tests/                    # focused regression tests
+└── docs/                     # dev/deploy guide and a worked case
 ```
 
-## 文档
+## More reading
 
-- [开发与部署指南](./docs/development-and-deployment-guide.md)
-- [案例说明](./docs/memory-settings-case.md)
+- [Development and deployment guide](./docs/development-and-deployment-guide_EN.md)
+- [Memory settings case study](./docs/memory-settings-case_EN.md)
 
-## 边界
+## Where the line is
 
-- 前端只调用 `useFeatureCapability('service:memory')`，不直接请求后端 URL。
-- 插件加载成功 ≠ 后端接通；真实验收需要 Registry、Adapter 和 `service:memory`
-  operation 逐层验证。
-- 命令执行预览、全量 BiBit 审计和跨系统敏感操作门禁属于 Runtime/Security；本插件不声明也不实现这些系统能力。
-- 记忆的业务逻辑、持久化和权限由 `bianbu-agent-memory` 服务负责，本仓库只维护
-  UI 和 DTO/operation 契约。
+- The front end only calls `useFeatureCapability('service:memory')`. It never
+  holds a backend URL or a credential.
+- Loading the plugin is not the same as a working backend. A real acceptance
+  run needs the registry, the adapter, and the operations to line up.
+- Memory logic, persistence, permissions, and confirmation live in
+  `bianbu-agent-memory`. This repo owns the UI and the DTO contract.
 
-## 发布前检查
+## Before you publish
 
-公开发布前请确认 `git ls-files` 中没有 `.env`、私钥、数据库、导出记忆、构建产物或
-设备日志；用占位符替换内部仓库地址、内网 IP、绝对路径和真实服务凭据。执行
-`npm ci && npm run typecheck && npm test && npm run build:dev` 后再生成发布包。
+Run `git ls-files` and make sure there is no `.env`, private key, database,
+exported memory, build artifact, or device log. Replace internal repository
+addresses, private IPs, absolute paths, and real credentials with placeholders.
+Then run `npm ci && npm run typecheck && npm test && npm run build:dev` before
+cutting a release.

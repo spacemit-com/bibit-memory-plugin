@@ -10,7 +10,7 @@
 1. `bibit.feature.json` 声明 `service:memory` 和 `settings.manager`。
 2. `src/feature.tsx` 把 `MemorySettingsPage` 注册为 `settings.manager`。
 3. `MemorySettingsPage` 用 `useFeatureCapability('service:memory')` 获取 Host API。
-4. 加载时调用 `privacy.settings.get`；设置项变更立即调用 `privacy.settings.update`，不经过 Runtime。清除历史、清除全部和导出分别调用对应的 `privacy.*` operation。
+4. 加载时调用 `privacy.settings.get`；设置项变更立即调用 `privacy.settings.update`，不经过 Runtime。清除历史、清除全部、导出和导入分别调用对应的 `privacy.*` operation。
 5. Host 通过四层授权后把请求转给 Memory Provider/Adapter。删除操作的确认弹窗只负责用户体验，不承担安全校验。
 6. Adapter 转给 `bianbu-agent-memoryd`，并为删除请求注入由 Runtime/Security 签发、绑定 operation/Agent/有效期的一次性确认令牌；Memory 负责验证结果、审计和事务。页面不直接访问文件或数据库。
 
@@ -29,7 +29,7 @@
   "manifestSchemaVersion": 1,
   "sdkApiVersion": 1,
   "id": "memory",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "owner": "memory-team",
   "display": {
     "titleKey": "memory:title",
@@ -37,7 +37,7 @@
     "iconKey": "memory"
   },
   "targets": ["desktop"],
-  "requiredHostCapabilities": ["service:memory"],
+  "requiredHostCapabilities": ["service:memory", "file:transfer"],
   "contributions": {
     "pages": [],
     "settings": [
@@ -69,8 +69,6 @@ export const MEMORY_OPS = {
 export interface MemorySettingsV1 {
   memory_enabled: boolean
   retention_days: 0 | 7 | 30 | 90
-  backup_enabled: boolean
-  backup_frequency: 'manual' | 'daily' | 'weekly' | 'monthly'
 }
 ```
 
