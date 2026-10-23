@@ -6,6 +6,7 @@ import {
   MEMORY_OPS,
   parseBackupSupported,
   parseEmbeddingSection,
+  parseImportDocument,
   parseMemorySettings,
   type MemorySettingsV1,
 } from './memory-contracts'
@@ -57,6 +58,25 @@ const EN_MESSAGES: Record<string, string> = {
   '数据导出': 'Export data',
   '将 BiBit 应用记忆空间中的数据导出为 JSON 文件。不包含其他智能体应用的记忆，也不包含聊天对话原文。':
     'Exports BiBit memory as a JSON file. Other agents and the raw chat transcripts are not included.',
+  '数据导入': 'Import data',
+  '选择要导入的记忆数据文件': 'Choose a memory export file to import',
+  '从之前导出的 JSON 文件恢复 BiBit 记忆。已存在的记忆会保留当前内容，同一文件可重复导入。':
+    'Restores BiBit memory from a previously exported JSON file. Existing records keep their current content, and importing the same file twice is safe.',
+  '正在读取导入文件...': 'Reading the import file...',
+  '导入文件不是合法的 JSON': 'The selected file is not valid JSON.',
+  '导入文件不是记忆导出文档': 'The selected file is not a memory export document.',
+  '导入文件格式不受支持（需要 bianbu-agent-memory.export.v1）':
+    'Unsupported import file format (expected bianbu-agent-memory.export.v1).',
+  '已取消导入，记忆未更改。': 'Import cancelled; memory was not changed.',
+  '正在导入记忆数据...': 'Importing memory...',
+  '记忆数据已导入。': 'Memory was imported.',
+  '导入完成，但没有新增记忆（记录都已存在）。':
+    'Import finished, but nothing was added because those records already exist.',
+  '导入失败，记忆未更改。': 'Import failed; memory was not changed.',
+  '导入文件过大，未读取。': 'The selected file is too large to import.',
+  '导入文件无法读取': 'The selected file could not be read.',
+  '即将把该文件中的记忆合并到 BiBit 应用记忆空间。已存在的记录保留当前内容，导入不会删除任何记忆。\n\n注意：仅影响 BiBit 应用自己的记忆，设备上其他智能体应用的记忆不受影响。':
+    'This merges the memories in this file into BiBit memory. Existing records keep their current content and nothing is deleted.\n\nOnly BiBit memory is affected; other agents keep their own memory.',
   '正在加载记忆设置...': 'Loading memory settings...',
   '正在检查记忆服务': 'Checking the memory service',
   '记忆服务运行中': 'Memory service is running',
@@ -114,6 +134,25 @@ const fileTransferPublish = (
   return typeof candidate === 'function'
     ? (candidate as FileTransferPublish)
     : undefined
+}
+
+// 导入方向还没有宿主级读取契约（SDK 0.3.0 只声明 select），所以文件由页面
+// 自己的 <input type="file"> 读取。上限与 memoryd 单帧预算一致，超限在本地
+// 就报错，不把读不完的文件送进服务。
+const IMPORT_MAX_BYTES = 4 * 1024 * 1024
+
+/**
+ * 读取用户选中的导入文件。优先用 Blob.text()；WebView 或旧运行时不提供时
+ * 回退到 FileReader，两者都以 UTF-8 解码导出文件。
+ */
+function readImportFile(file: File): Promise<string> {
+  if (typeof file.text === 'function') return file.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(new Error('导入文件无法读取'))
+    reader.readAsText(file, 'utf-8')
+  })
 }
 
 type ServiceState = 'checking' | 'available' | 'unavailable' | 'unauthorized'
@@ -217,6 +256,7 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
   const requestController = useRef<AbortController | null>(null)
   const probeController = useRef<AbortController | null>(null)
   const announcedLoad = useRef(false)
+  const importInput = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => () => {
     requestController.current?.abort()
@@ -394,6 +434,58 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
     }
   }, [memory, probe, publishExport, ready, saving, t, transfer])
 
+  const importFile = useCallback(async (file: File) => {
+    if (!memory || !ready || saving || requestController.current) return
+    if (file.size > IMPORT_MAX_BYTES) {
+      setStatus(t('导入文件过大，未读取。'))
+      return
+    }
+    let document: Record<string, unknown>
+    try {
+      document = parseImportDocument(await readImportFile(file))
+    } catch (error) {
+      setStatus(t(error instanceof Error ? error.message : '导入文件不是记忆导出文档'))
+      return
+    }
+    const confirmed = globalThis.confirm?.(t(
+      '即将把该文件中的记忆合并到 BiBit 应用记忆空间。已存在的记录保留当前内容，导入不会删除任何记忆。\n\n注意：仅影响 BiBit 应用自己的记忆，设备上其他智能体应用的记忆不受影响。'
+    ))
+    if (confirmed !== true) {
+      setStatus(t('已取消导入，记忆未更改。'))
+      return
+    }
+    const controller = new AbortController()
+    requestController.current = controller
+    setSaving(true)
+    setStatus(t('正在导入记忆数据...'))
+    try {
+      const result = await memory.request<{
+        imported?: { session_events?: number, session_summaries?: number, long_term_memories?: number }
+      }>({
+        serviceId: 'memory',
+        operationId: MEMORY_OPS.importData,
+        params: { payload: document },
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      const imported = result?.imported ?? {}
+      const total = (imported.session_events ?? 0)
+        + (imported.session_summaries ?? 0)
+        + (imported.long_term_memories ?? 0)
+      setStatus(t(total > 0
+        ? '记忆数据已导入。'
+        : '导入完成，但没有新增记忆（记录都已存在）。'))
+    } catch {
+      if (!controller.signal.aborted) {
+        setStatus(t('导入失败，记忆未更改。'))
+        void probe()
+      }
+    } finally {
+      if (!controller.signal.aborted) setSaving(false)
+      if (requestController.current === controller) requestController.current = null
+    }
+  }, [memory, probe, ready, saving, t])
+
   const disabled = !ready || saving
   const serviceState: ServiceState = memory ? serviceStatus : 'unauthorized'
 
@@ -407,7 +499,89 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
         </p>
       </header>
       <MemoryServiceStatus state={serviceState} onRetry={() => void probe()} t={t} />
-      <section className="memory-settings__card">
+<section className="memory-settings__card">
+        <h2 className="memory-settings__card-title">{t('数据管理')}</h2>
+        <SettingRow
+          title={t('清除对话历史')}
+          description={t('清除 BiBit 记忆中保存的对话记录与摘要，长期记忆（如你的偏好）会保留。')}
+        >
+          <button
+            className="memory-settings__button memory-settings__button--outline"
+            type="button"
+            disabled={disabled}
+            onClick={() => void runPrivacyAction(
+              MEMORY_OPS.clearHistory,
+              { reason_code: 'user_request' },
+              t('即将清除 BiBit 应用记忆中的对话记录与摘要，此操作不可恢复。\n\n注意：聊天窗口中的对话原文由对话应用单独保存，不会被清除；设备上其他智能体应用的记忆也不受影响。'),
+              'BiBit 对话历史已清除，长期记忆已保留。',
+            )}
+          >
+            {t('清除对话历史')}
+          </button>
+        </SettingRow>
+        <SettingRow
+          title={t('清除所有记忆')}
+          description={t('永久删除 BiBit 应用记忆空间中的全部数据（对话记录、摘要、长期记忆与偏好）。')}
+        >
+          <button
+            className="memory-settings__button memory-settings__button--danger"
+            type="button"
+            disabled={disabled}
+            onClick={() => void runPrivacyAction(
+              MEMORY_OPS.clearAll,
+              { reason_code: 'user_request' },
+              t('即将永久删除 BiBit 应用记忆空间中的全部记忆（长期记忆、偏好、对话记录与摘要），此操作不可恢复。\n\n注意：仅删除 BiBit 应用自己的记忆，设备上其他智能体应用的记忆不受影响；聊天窗口中的对话原文不会被删除。'),
+              'BiBit 应用记忆已全部清除。',
+            )}
+          >
+            {t('清除所有记忆')}
+          </button>
+        </SettingRow>
+        <SettingRow
+          title={t('数据导出')}
+          description={t('将 BiBit 应用记忆空间中的数据导出为 JSON 文件。不包含其他智能体应用的记忆，也不包含聊天对话原文。')}
+        >
+          <button
+            className="memory-settings__button memory-settings__button--outline"
+            type="button"
+            disabled={disabled}
+            onClick={() => void runPrivacyAction(
+              MEMORY_OPS.exportData,
+              { limit_per_collection: 500, include_audit: false },
+              '',
+              'BiBit 记忆数据 JSON 已导出到系统「下载」目录（bianbu-agent-memory-export.json）。',
+            )}
+          >
+            {t('数据导出')}
+          </button>
+        </SettingRow>
+        <SettingRow
+          title={t('数据导入')}
+          description={t('从之前导出的 JSON 文件恢复 BiBit 记忆。已存在的记忆会保留当前内容，同一文件可重复导入。')}
+        >
+          <button
+            className="memory-settings__button memory-settings__button--outline"
+            type="button"
+            disabled={disabled}
+            onClick={() => importInput.current?.click()}
+          >
+            {t('数据导入')}
+          </button>
+          <input
+            ref={importInput}
+            type="file"
+            accept="application/json,.json"
+            aria-label={t('选择要导入的记忆数据文件')}
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0]
+              // 允许再次选择同一个文件：清空值后 change 才会重新触发。
+              event.currentTarget.value = ''
+              if (file) void importFile(file)
+            }}
+          />
+        </SettingRow>
+      </section>      <section className="memory-settings__card">
         <h2 className="memory-settings__card-title">{t('记忆设置')}</h2>
         <SettingRow
           controlId="memory-enabled"
@@ -503,63 +677,6 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
             </SettingRow>
           </>
         )}
-      </section>
-      <section className="memory-settings__card">
-        <h2 className="memory-settings__card-title">{t('数据管理')}</h2>
-        <SettingRow
-          title={t('清除对话历史')}
-          description={t('清除 BiBit 记忆中保存的对话记录与摘要，长期记忆（如你的偏好）会保留。')}
-        >
-          <button
-            className="memory-settings__button memory-settings__button--outline"
-            type="button"
-            disabled={disabled}
-            onClick={() => void runPrivacyAction(
-              MEMORY_OPS.clearHistory,
-              { reason_code: 'user_request' },
-              t('即将清除 BiBit 应用记忆中的对话记录与摘要，此操作不可恢复。\n\n注意：聊天窗口中的对话原文由对话应用单独保存，不会被清除；设备上其他智能体应用的记忆也不受影响。'),
-              'BiBit 对话历史已清除，长期记忆已保留。',
-            )}
-          >
-            {t('清除对话历史')}
-          </button>
-        </SettingRow>
-        <SettingRow
-          title={t('清除所有记忆')}
-          description={t('永久删除 BiBit 应用记忆空间中的全部数据（对话记录、摘要、长期记忆与偏好）。')}
-        >
-          <button
-            className="memory-settings__button memory-settings__button--danger"
-            type="button"
-            disabled={disabled}
-            onClick={() => void runPrivacyAction(
-              MEMORY_OPS.clearAll,
-              { reason_code: 'user_request' },
-              t('即将永久删除 BiBit 应用记忆空间中的全部记忆（长期记忆、偏好、对话记录与摘要），此操作不可恢复。\n\n注意：仅删除 BiBit 应用自己的记忆，设备上其他智能体应用的记忆不受影响；聊天窗口中的对话原文不会被删除。'),
-              'BiBit 应用记忆已全部清除。',
-            )}
-          >
-            {t('清除所有记忆')}
-          </button>
-        </SettingRow>
-        <SettingRow
-          title={t('数据导出')}
-          description={t('将 BiBit 应用记忆空间中的数据导出为 JSON 文件。不包含其他智能体应用的记忆，也不包含聊天对话原文。')}
-        >
-          <button
-            className="memory-settings__button memory-settings__button--outline"
-            type="button"
-            disabled={disabled}
-            onClick={() => void runPrivacyAction(
-              MEMORY_OPS.exportData,
-              { limit_per_collection: 500, include_audit: false },
-              '',
-              'BiBit 记忆数据 JSON 已导出到系统「下载」目录（bianbu-agent-memory-export.json）。',
-            )}
-          >
-            {t('数据导出')}
-          </button>
-        </SettingRow>
       </section>
       <p className="memory-settings__status" role="status" aria-live="polite">{status}</p>
     </div>

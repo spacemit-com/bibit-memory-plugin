@@ -15,6 +15,9 @@ describe('plugin packaging', () => {
     expect(grants.serviceOperations.memory.memory).toContain(
       'privacy.export_data'
     )
+    expect(grants.serviceOperations.memory.memory).toContain(
+      'privacy.import_data'
+    )
   })
 
   it('keeps the manifest version aligned with the package and debian metadata', () => {

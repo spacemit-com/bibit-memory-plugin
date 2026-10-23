@@ -4,7 +4,45 @@ export const MEMORY_OPS = {
   clearHistory: 'privacy.clear_history',
   clearAll: 'privacy.clear_all',
   exportData: 'privacy.export_data',
+  importData: 'privacy.import_data',
 } as const
+
+/** 导出文件的格式标识；导入只接受这一种文档。 */
+export const EXPORT_FORMAT = 'bianbu-agent-memory.export.v1'
+
+export interface ImportResultV1 {
+  imported: {
+    session_events: number
+    session_summaries: number
+    long_term_memories: number
+  }
+  skipped: {
+    session_events: number
+    session_summaries: number
+    long_term_memories: number
+  }
+}
+
+/**
+ * 校验一个待导入文件的内容。只做结构与格式检查，不解释业务字段：
+ * 语义校验由 memory 侧负责，页面提前拒绝可以给出更准确的提示。
+ */
+export function parseImportDocument(text: string): Record<string, unknown> {
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch {
+    throw new Error('导入文件不是合法的 JSON')
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('导入文件不是记忆导出文档')
+  }
+  const document = value as Record<string, unknown>
+  if (document.format !== EXPORT_FORMAT) {
+    throw new Error(`导入文件格式不受支持（需要 ${EXPORT_FORMAT}）`)
+  }
+  return document
+}
 
 /** daemon settings.get 响应里的 embedding 配置段（原样透传，字段由 Memory 后端定义）。 */
 export type EmbeddingSection = Record<string, unknown>

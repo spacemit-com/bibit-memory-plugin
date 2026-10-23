@@ -3,7 +3,7 @@
 ## 目标
 
 在 Bibit 的 `设置 > 隐私` 下新增一个 `Memory` 入口，用户可以在该页开关记忆、设置
-保留期、云端备份和自动备份频率，并执行清除历史、清除全部和数据导出操作。
+保留期，并执行清除历史、清除全部、数据导出和数据导入操作。
 
 ## 交付链路
 
@@ -63,6 +63,7 @@ export const MEMORY_OPS = {
   clearHistory: 'privacy.clear_history',
   clearAll: 'privacy.clear_all',
   exportData: 'privacy.export_data',
+  importData: 'privacy.import_data',
 } as const
 
 export interface MemorySettingsV1 {
@@ -81,6 +82,7 @@ npm run dev
 ```
 
 打开 Vite 地址后进入 `Settings · manager`。设置项修改后会立即调用
-`privacy.settings.update`；三个数据操作分别调用 `privacy.clear_history`、
-`privacy.clear_all` 和 `privacy.export_data`。该 Mock 只验证前端与 DTO，不代表真实
-Memory Provider/Adapter 已接通。
+`privacy.settings.update`；四个数据操作分别调用 `privacy.clear_history`、
+`privacy.clear_all`、`privacy.export_data` 和 `privacy.import_data`。导入先校验
+`format` 为 `bianbu-agent-memory.export.v1`，再弹确认框；合并语义与幂等由 memory
+侧保证。该 Mock 只验证前端与 DTO，不代表真实 Memory Provider/Adapter 已接通。

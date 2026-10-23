@@ -10,7 +10,8 @@
         "privacy.settings.update",
         "privacy.clear_history",
         "privacy.clear_all",
-        "privacy.export_data"
+        "privacy.export_data",
+        "privacy.import_data"
       ]
     }
   }

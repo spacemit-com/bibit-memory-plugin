@@ -44,8 +44,9 @@ MemorySettingsPage
 ```
 
 - Manifest 声明 `service:memory` 与 `file:transfer`。
-- 页面调用 `service:memory` 的 `privacy.settings.get`、`privacy.settings.update`、`privacy.clear_history`、`privacy.clear_all` 和 `privacy.export_data`。
+- 页面调用 `service:memory` 的 `privacy.settings.get`、`privacy.settings.update`、`privacy.clear_history`、`privacy.clear_all`、`privacy.export_data` 和 `privacy.import_data`。
 - 数据导出先用 `privacy.export_data` 取回 JSON，再用 `file:transfer` 让用户选择保存位置并把字节交给宿主；宿主校验长度与 SHA-256 后原子写入，插件始终拿不到绝对路径。宿主未授权该能力时保持浏览器下载回退。
+- 数据导入由页面自己的文件选择框读取用户选择的 JSON（SDK 0.3.0 的 `file:transfer` 只有 download 方向），先用 `bianbu-agent-memory.export.v1` 校验格式、再弹确认框、最后调用 `privacy.import_data`。导入是合并语义：已存在的记录按原 id 跳过，不会覆盖或删除现有记忆。
 - 设置页面的记忆开关、保留期、云端备份和备份频率采用即时保存：每次变更都直接提交给 Memory Provider，由 memoryd 持久化；不经过 Runtime，也不直接编辑 JSON/SQLite。
 - 删除操作需要系统确认流程签发的一次性确认令牌。Host/Adapter 将令牌绑定到当前 Agent、operation 和有效期后注入请求；memoryd 只验证结果并执行事务。前端的确认弹窗不是安全边界。
 - 命令执行预览和全量 BiBit 操作审计由 Runtime/Security 提供，不属于本插件。

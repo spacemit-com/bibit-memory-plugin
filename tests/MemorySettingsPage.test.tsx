@@ -27,6 +27,7 @@ function renderWithMemoryService(
   fileTransfer?: FileTransferStub
 ) {
   const failures = { value: false }
+  const importedPayloads: Array<Record<string, unknown>> = []
   let settings: Record<string, unknown> = {
     memory_enabled: true,
     retention_days: 0 as const,
@@ -64,6 +65,15 @@ function renderWithMemoryService(
     if (operationId === 'privacy.export_data') {
       return { format: 'bianbu-agent-memory.export.v1', exported_at: 1, settings }
     }
+    if (operationId === 'privacy.import_data') {
+      importedPayloads.push(params)
+      return {
+        imported_at: 2,
+        format: 'bianbu-agent-memory.export.v1',
+        imported: { session_events: 1, session_summaries: 1, long_term_memories: 2 },
+        skipped: { session_events: 0, session_summaries: 0, long_term_memories: 0 },
+      }
+    }
     settings = { ...settings, ...(params as Partial<typeof settings>) }
     return settings
   })
@@ -82,7 +92,7 @@ function renderWithMemoryService(
       <MemorySettingsPage featureId="memory" contributionId="manager" subpath="" search={{}} navigation={{ push() {}, replace() {}, back() {} }} />
     </FeatureHostApiProvider>
   )
-  return { request, failures }
+  return { request, failures, importedPayloads }
 }
 
 describe('MemorySettingsPage', () => {
@@ -311,12 +321,15 @@ describe('MemorySettingsPage', () => {
     // 时云端备份两行保持隐藏。
     expect(screen.getAllByRole('switch')).toHaveLength(2)
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
-    expect(screen.getAllByRole('button')).toHaveLength(3)
+    expect(screen.getAllByRole('button')).toHaveLength(4)
+    expect(screen.getByRole('button', { name: '数据导入' })).toBeTruthy()
+    expect(screen.getByLabelText('选择要导入的记忆数据文件')).toBeTruthy()
     // 作用域明示：顶部说明 + 三个操作各自的说明文案。
     expect(screen.getByText('本页设置与操作仅作用于 BiBit 应用自己的记忆数据。设备上其他智能体应用的记忆相互独立，不受本页影响。')).toBeTruthy()
     expect(screen.getByText('永久删除 BiBit 应用记忆空间中的全部数据（对话记录、摘要、长期记忆与偏好）。')).toBeTruthy()
     expect(screen.getByText('清除 BiBit 记忆中保存的对话记录与摘要，长期记忆（如你的偏好）会保留。')).toBeTruthy()
     expect(screen.getByText('将 BiBit 应用记忆空间中的数据导出为 JSON 文件。不包含其他智能体应用的记忆，也不包含聊天对话原文。')).toBeTruthy()
+    expect(screen.getByText('从之前导出的 JSON 文件恢复 BiBit 记忆。已存在的记忆会保留当前内容，同一文件可重复导入。')).toBeTruthy()
     expect((screen.getByRole('switch', { name: '记忆功能' }) as HTMLInputElement).checked).toBe(true)
     expect((screen.getByRole('switch', { name: '语义记忆' }) as HTMLInputElement).checked).toBe(true)
     expect(screen.queryByRole('switch', { name: '云端备份' })).toBeNull()
@@ -461,5 +474,62 @@ describe('MemorySettingsPage', () => {
 
     expect(request.mock.calls.length).toBeGreaterThan(callsBefore)
     expect(screen.getByText('记忆服务不可用')).toBeTruthy()
+  })
+
+  it('imports a chosen JSON document through privacy.import_data', async () => {
+    const { request, importedPayloads } = renderWithMemoryService()
+    const confirmMock = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirmMock)
+    await screen.findByText('记忆设置已加载。')
+
+    const input = screen.getByLabelText('选择要导入的记忆数据文件') as HTMLInputElement
+    expect(input).toBeTruthy()
+    const document = {
+      format: 'bianbu-agent-memory.export.v1',
+      scope: { account_id: 'spacemit:test', agent_id: 'bibit', memory_space_id: 'space' },
+      session_events: [],
+      session_summaries: [],
+      long_term_memories: [{ memory_id: 'm1', kind: 'preference', text: 'likes tea' }],
+    }
+    const file = new File([JSON.stringify(document)], 'memory.json', { type: 'application/json' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(request).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'privacy.import_data',
+      params: { payload: document },
+    })))
+    expect(importedPayloads).toHaveLength(1)
+    expect(confirmMock).toHaveBeenLastCalledWith(expect.stringContaining('导入不会删除任何记忆'))
+    expect(await screen.findByText('记忆数据已导入。')).toBeTruthy()
+  })
+
+  it('rejects a file that is not a memory export without contacting the service', async () => {
+    const { request } = renderWithMemoryService()
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    await screen.findByText('记忆设置已加载。')
+
+    const input = screen.getByLabelText('选择要导入的记忆数据文件') as HTMLInputElement
+    const file = new File([JSON.stringify({ format: 'something.else.v1' })], 'other.json', { type: 'application/json' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(await screen.findByText('导入文件格式不受支持（需要 bianbu-agent-memory.export.v1）')).toBeTruthy()
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: 'privacy.import_data' }))
+  })
+
+  it('sends no import request when the confirmation is dismissed', async () => {
+    const { request } = renderWithMemoryService()
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    await screen.findByText('记忆设置已加载。')
+
+    const input = screen.getByLabelText('选择要导入的记忆数据文件') as HTMLInputElement
+    const file = new File(
+      [JSON.stringify({ format: 'bianbu-agent-memory.export.v1' })],
+      'memory.json',
+      { type: 'application/json' },
+    )
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(await screen.findByText('已取消导入，记忆未更改。')).toBeTruthy()
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: 'privacy.import_data' }))
   })
 })
