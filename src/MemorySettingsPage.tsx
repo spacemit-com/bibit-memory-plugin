@@ -4,7 +4,6 @@ import './memory.css'
 import {
   DEFAULT_MEMORY_SETTINGS,
   MEMORY_OPS,
-  parseBackupSupported,
   parseEmbeddingSection,
   parseImportDocument,
   parseMemorySettings,
@@ -40,15 +39,6 @@ const EN_MESSAGES: Record<string, string> = {
   '30天': '30 days',
   '90天': '90 days',
   '永久': 'Forever',
-  '云端备份': 'Cloud backup',
-  '开启后定期将记忆加密备份到进迭时空社区云端。':
-    'Periodically store an encrypted memory backup in the Bianbu community cloud.',
-  '自动备份频率': 'Backup frequency',
-  '可选每天、每周、每月或手动。': 'Back up daily, weekly, monthly or only on demand.',
-  '每天': 'Daily',
-  '每周': 'Weekly',
-  '每月': 'Monthly',
-  '手动': 'Manual',
   '清除对话历史': 'Clear conversation history',
   '清除 BiBit 记忆中保存的对话记录与摘要，长期记忆（如你的偏好）会保留。':
     'Removes stored conversation records and summaries. Long-term memory such as your preferences is kept.',
@@ -249,7 +239,6 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
   const publishExport = fileTransferPublish(transfer)
   const [settings, setSettings] = useState<MemorySettingsV1>(DEFAULT_MEMORY_SETTINGS)
   const [embeddingSection, setEmbeddingSection] = useState<Record<string, unknown> | null>(null)
-  const [backupSupported, setBackupSupported] = useState(false)
   const [status, setStatus] = useState(() => (memory ? t('正在加载记忆设置...') : ''))
   const [serviceStatus, setServiceStatus] = useState<ServiceState>('checking')
   const [saving, setSaving] = useState(false)
@@ -278,7 +267,6 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
       if (controller.signal.aborted) return
       setSettings(parseMemorySettings(response))
       setEmbeddingSection(parseEmbeddingSection(response))
-      setBackupSupported(parseBackupSupported(response))
       setServiceStatus('available')
       if (!announcedLoad.current) {
         announcedLoad.current = true
@@ -331,7 +319,6 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
       if (controller.signal.aborted) return
       setSettings(parseMemorySettings(value))
       setEmbeddingSection(parseEmbeddingSection(value))
-      setBackupSupported(parseBackupSupported(value))
       setStatus(t('记忆设置已保存。'))
     } catch {
       if (!controller.signal.aborted) {
@@ -636,47 +623,6 @@ export function MemorySettingsPage({ language }: MemoryPageProps) {
             <option value={0}>{t('永久')}</option>
           </select>
         </SettingRow>
-        {/* 云端备份尚未接入（无云端适配器 + 本地账户），后端信号
-            backup_supported/identity.cloud_upload_allowed 双真时才显示。 */}
-        {backupSupported && (
-          <>
-            <SettingRow
-              controlId="backup-enabled"
-              title={t('云端备份')}
-              description={t('开启后定期将记忆加密备份到进迭时空社区云端。')}
-            >
-              <input
-                id="backup-enabled"
-                className="memory-settings__switch"
-                aria-label={t('云端备份')}
-                role="switch"
-                type="checkbox"
-                checked={settings.backup_enabled}
-                disabled={disabled}
-                onChange={(event) => updateSetting({ backup_enabled: event.target.checked })}
-              />
-            </SettingRow>
-            <SettingRow
-              controlId="backup-frequency"
-              title={t('自动备份频率')}
-              description={t('可选每天、每周、每月或手动。')}
-            >
-              <select
-                id="backup-frequency"
-                className="memory-settings__select"
-                aria-label={t('自动备份频率')}
-                value={settings.backup_frequency}
-                disabled={disabled}
-                onChange={(event) => updateSetting({ backup_frequency: event.target.value as MemorySettingsV1['backup_frequency'] })}
-              >
-                <option value="daily">{t('每天')}</option>
-                <option value="weekly">{t('每周')}</option>
-                <option value="monthly">{t('每月')}</option>
-                <option value="manual">{t('手动')}</option>
-              </select>
-            </SettingRow>
-          </>
-        )}
       </section>
       <p className="memory-settings__status" role="status" aria-live="polite">{status}</p>
     </div>

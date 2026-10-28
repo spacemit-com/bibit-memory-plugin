@@ -22,17 +22,12 @@ type FileTransferStub = {
   publish?: (input: Record<string, unknown>) => Promise<unknown>
 }
 
-function renderWithMemoryService(
-  cloudOverrides?: Record<string, unknown>,
-  fileTransfer?: FileTransferStub
-) {
+function renderWithMemoryService(fileTransfer?: FileTransferStub) {
   const failures = { value: false }
   const importedPayloads: Array<Record<string, unknown>> = []
   let settings: Record<string, unknown> = {
     memory_enabled: true,
     retention_days: 0 as const,
-    backup_enabled: false,
-    backup_frequency: 'weekly' as const,
     preference_auto_apply_enabled: true,
     development_habit_auto_apply_enabled: true,
     recent_turn_limit: 5,
@@ -51,7 +46,6 @@ function renderWithMemoryService(
       index_timeout_ms: 10000,
       query_instruct: 'Instruct: retrieve relevant memories\nQuery: ',
     },
-    ...(cloudOverrides ?? {}),
   }
   const request = vi.fn(async ({ operationId, params }: { operationId: string; params: Record<string, unknown> }) => {
     if (failures.value) throw new Error('memory service is down')
@@ -216,7 +210,7 @@ describe('MemorySettingsPage', () => {
     const publish = vi.fn(
       async (_input: Record<string, unknown>) => undefined
     )
-    renderWithMemoryService(undefined, { select, publish })
+    renderWithMemoryService({ select, publish })
     await screen.findByText('记忆设置已加载。')
 
     fireEvent.click(screen.getByRole('button', { name: '数据导出' }))
@@ -256,7 +250,7 @@ describe('MemorySettingsPage', () => {
       .mockImplementation(() => {})
     const select = vi.fn(async () => null)
     const publish = vi.fn(async () => undefined)
-    renderWithMemoryService(undefined, { select, publish })
+    renderWithMemoryService({ select, publish })
     await screen.findByText('记忆设置已加载。')
 
     fireEvent.click(screen.getByRole('button', { name: '数据导出' }))
@@ -278,7 +272,7 @@ describe('MemorySettingsPage', () => {
     const publish = vi.fn(async () => {
       throw new Error('grant_already_consumed')
     })
-    renderWithMemoryService(undefined, { select, publish })
+    renderWithMemoryService({ select, publish })
     await screen.findByText('记忆设置已加载。')
 
     fireEvent.click(screen.getByRole('button', { name: '数据导出' }))
@@ -303,7 +297,7 @@ describe('MemorySettingsPage', () => {
       displayName: 'bianbu-agent-memory-export.json',
       expiresAt: new Date(0).toISOString(),
     }))
-    renderWithMemoryService(undefined, { select })
+    renderWithMemoryService({ select })
     await screen.findByText('记忆设置已加载。')
 
     fireEvent.click(screen.getByRole('button', { name: '数据导出' }))
@@ -317,8 +311,7 @@ describe('MemorySettingsPage', () => {
     const { request } = renderWithMemoryService()
     await screen.findByText('记忆设置已加载。')
 
-    // 无云端信号（backup_supported/identity.cloud_upload_allowed 缺失）
-    // 时云端备份两行保持隐藏。
+    // 设置页只有「记忆功能」和「语义记忆」两个开关，外加保留期一个下拉。
     expect(screen.getAllByRole('switch')).toHaveLength(2)
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.getAllByRole('button')).toHaveLength(4)
@@ -332,8 +325,6 @@ describe('MemorySettingsPage', () => {
     expect(screen.getByText('从之前导出的 JSON 文件恢复 BiBit 记忆。已存在的记忆会保留当前内容，同一文件可重复导入。')).toBeTruthy()
     expect((screen.getByRole('switch', { name: '记忆功能' }) as HTMLInputElement).checked).toBe(true)
     expect((screen.getByRole('switch', { name: '语义记忆' }) as HTMLInputElement).checked).toBe(true)
-    expect(screen.queryByRole('switch', { name: '云端备份' })).toBeNull()
-    expect(screen.queryByLabelText('自动备份频率')).toBeNull()
     expect((screen.getByLabelText('记忆保留时长') as HTMLSelectElement).value).toBe('0')
     expect(Array.from(screen.getByLabelText('记忆保留时长').querySelectorAll('option')).map((option) => [option.value, option.textContent]))
       .toEqual([['7', '7天'], ['30', '30天'], ['90', '90天'], ['0', '永久']])
@@ -347,38 +338,6 @@ describe('MemorySettingsPage', () => {
     expect(screen.queryByText('敏感操作确认级别')).toBeNull()
     expect(screen.queryByText('命令执行预览')).toBeNull()
     expect(screen.queryByText('审计日志')).toBeNull()
-  })
-
-  it('shows the cloud backup controls when the backend signals cloud support', async () => {
-    const { request } = renderWithMemoryService({
-      backup_supported: true,
-      identity: { account_id: 'spacemit:test', cloud_upload_allowed: true },
-    })
-    await screen.findByText('记忆设置已加载。')
-
-    expect(screen.getAllByRole('switch')).toHaveLength(3)
-    expect(screen.getAllByRole('combobox')).toHaveLength(2)
-    expect((screen.getByRole('switch', { name: '云端备份' }) as HTMLInputElement).checked).toBe(false)
-    expect((screen.getByLabelText('自动备份频率') as HTMLSelectElement).value).toBe('weekly')
-    expect(Array.from(screen.getByLabelText('自动备份频率').querySelectorAll('option')).map((option) => [option.value, option.textContent]))
-      .toEqual([['daily', '每天'], ['weekly', '每周'], ['monthly', '每月'], ['manual', '手动']])
-
-    fireEvent.click(screen.getByRole('switch', { name: '云端备份' }))
-    await waitFor(() => expect(request).toHaveBeenLastCalledWith(expect.objectContaining({
-      operationId: 'privacy.settings.update', params: { backup_enabled: true },
-    })))
-
-    fireEvent.change(screen.getByLabelText('自动备份频率'), { target: { value: 'daily' } })
-    await waitFor(() => expect(request).toHaveBeenLastCalledWith(expect.objectContaining({
-      operationId: 'privacy.settings.update', params: { backup_frequency: 'daily' },
-    })))
-  })
-
-  it('keeps cloud backup controls hidden when the account may not upload', async () => {
-    renderWithMemoryService({ backup_supported: true })
-    await screen.findByText('记忆设置已加载。')
-    expect(screen.queryByRole('switch', { name: '云端备份' })).toBeNull()
-    expect(screen.queryByLabelText('自动备份频率')).toBeNull()
   })
 
   it('round-trips the full embedding section with only enabled flipped', async () => {
@@ -412,8 +371,6 @@ describe('MemorySettingsPage', () => {
     let settings = {
       memory_enabled: true,
       retention_days: 0 as const,
-      backup_enabled: false,
-      backup_frequency: 'weekly' as const,
     }
     const request = vi.fn(async ({ operationId, params }: { operationId: string; params: Record<string, unknown> }) => {
       if (operationId === 'privacy.settings.get') return settings
@@ -434,7 +391,7 @@ describe('MemorySettingsPage', () => {
     )
     await screen.findByText('记忆设置已加载。')
     expect(screen.queryByRole('switch', { name: '语义记忆' })).toBeNull()
-    // 该 mock 同样无云端信号：只剩「记忆功能」一个开关。
+    // 该 mock 没有 embedding 段：只剩「记忆功能」一个开关。
     expect(screen.getAllByRole('switch')).toHaveLength(1)
   })
 
