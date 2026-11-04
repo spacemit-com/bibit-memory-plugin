@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 import manifest from '../bibit.feature.json'
 import packageJson from '../package.json'
 import grants from '../deploy/feature-capability-grants-memory.json'
-import rules from '../debian/rules?raw'
-import changelog from '../debian/changelog?raw'
 
 describe('plugin packaging', () => {
   it('declares exactly the grants the manifest requires', () => {
@@ -20,11 +18,9 @@ describe('plugin packaging', () => {
     )
   })
 
-  it('keeps the manifest version aligned with the package and debian metadata', () => {
+  // Debian packaging is maintained separately and is not part of this public
+  // source tree. Its release version may differ from the plugin version.
+  it('keeps the manifest version aligned with the npm package', () => {
     expect(packageJson.version).toBe(manifest.version)
-    expect(rules).toContain(`PLUGIN_VERSION := ${manifest.version}`)
-    expect(changelog.startsWith(`bibit-memory-plugin (${manifest.version})`)).toBe(
-      true
-    )
   })
 })
