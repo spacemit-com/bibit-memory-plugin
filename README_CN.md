@@ -8,7 +8,7 @@
 打开或关闭记忆、选择记忆保留多久、清掉一段对话、抹掉全部记忆，以及把数据
 导出成 JSON 或从 JSON 导回来。
 
-它同时也是一份能跑起来的最小参考：一个设置页贡献、一个宿主能力，不改宿主
+它同时也是一份能跑起来的最小参考：一个设置页贡献、两个宿主能力（`service:memory` 和 `file:transfer`），不改宿主
 一行代码，就能把可信插件怎么写讲清楚。
 
 ## 这一页能做什么
@@ -102,3 +102,7 @@ npm run build:plugin   # 签名打包
 先跑 `git ls-files`，确认没有 `.env`、私钥、数据库、导出的记忆、构建产物或设备
 日志；把内部仓库地址、内网 IP、绝对路径和真实凭据换成占位符。再执行
 `npm ci && npm run typecheck && npm test && npm run build:dev`，然后打包发布。
+
+## 参与贡献
+
+[贡献指南](CONTRIBUTING_CN.md) | [版本说明](VERSIONING_CN.md)

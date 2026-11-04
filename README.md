@@ -10,7 +10,8 @@ keep it, clears a conversation, wipes everything, and moves their data in or
 out as JSON.
 
 It doubles as a working reference for trusted BiBit plugin development: one
-settings contribution, one host capability, and no changes to the host.
+settings contribution, two host capabilities (`service:memory` and
+`file:transfer`), and no changes to the host.
 
 ## What the page can do
 
@@ -109,3 +110,5 @@ exported memory, build artifact, or device log. Replace internal repository
 addresses, private IPs, absolute paths, and real credentials with placeholders.
 Then run `npm ci && npm run typecheck && npm test && npm run build:dev` before
 cutting a release.
+
+[Contributing](CONTRIBUTING.md) | [Version correspondence](VERSIONING.md)
