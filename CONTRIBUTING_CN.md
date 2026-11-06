@@ -14,6 +14,10 @@
 
 ## 开发检查
 
+当前未提供 GitHub Actions 自动验证，请执行下面的本地检查。内部 GitLab 流水线用于软件包构建与发布，不等同于 GitHub PR 自动验证。
+
+当前未公布专门的私密漏洞报告渠道。请勿在公开 Issue 或 PR 中提交漏洞利用细节或敏感数据；请先联系项目维护者协调反馈方式，再提供详情。
+
 使用 package.json 指定的宿主 SDK 和 React 版本。按照[中文 README](README_CN.md) 配置开发适配器，然后执行：
 
 ```bash

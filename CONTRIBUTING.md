@@ -14,6 +14,10 @@ See [VERSIONING.md](VERSIONING.md) for the relationship between source metadata 
 
 ## Development checks
 
+GitHub Actions checks are not currently provided. Run the local checks below. Internal GitLab pipelines build and publish distribution packages; they are not GitHub PR verification.
+
+No dedicated private vulnerability reporting channel is currently published. Do not disclose exploit details or sensitive data in public issues or PRs. Contact the project maintainers to arrange a suitable reporting method before sharing details.
+
 Use the host SDK and React versions declared in package.json. Follow README.md to configure the development adapter, then run:
 
 ```bash
